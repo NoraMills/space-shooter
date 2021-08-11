@@ -51,7 +51,7 @@ class Laser:
         return self.y <= height and self.y >= 0
 
     def collision(self, obj):
-        return collide(obj, self)
+        return collide(self, obj)
 
 
 class Ship:
@@ -63,6 +63,12 @@ class Ship:
         self.laser_img = None  # will draw the lazer
         self.lasers = []
         self.cool_down_counter = 0
+
+    def shoot(self):
+        if self.cool_down_counter == 0:
+            laser = Laser(x, y, self.laser_img)
+            self.lasers.append(laser)
+            self.cool_down_counter = 1
 
     def draw(self, window):
         # tells pygame to draw a rectangle in the window that is red at self.x, self.y
@@ -104,7 +110,8 @@ class Enemy(Ship):
 def collide(obj1, obj2):
     offset_x = obj2.x - obj1.x
     offset_y = obj2.y - obj1.y
-    return obj1.mask.overlap(obj2, (offset_x, offset_y))
+    # if they intersect, (x,y) will return
+    return obj1.mask.overlap(obj2.mask, (offset_x, offset_y)) != None
 
 
 def main():
