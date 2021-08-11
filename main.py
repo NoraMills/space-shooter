@@ -48,7 +48,7 @@ class Laser:
         self.y += vel
 
     def off_screen(self, height):
-        return self.y <= height and self.y >= 0
+        return not(self.y <= height and self.y >= 0)
 
     def collision(self, obj):
         return collide(self, obj)
@@ -66,12 +66,6 @@ class Ship:
         self.lasers = []
         self.cool_down_counter = 0
 
-    def shoot(self):
-        if self.cool_down_counter == 0:
-            laser = Laser(x, y, self.laser_img)
-            self.lasers.append(laser)
-            self.cool_down_counter = 1
-
     def draw(self, window):
         # tells pygame to draw a rectangle in the window that is red at self.x, self.y
         window.blit(self.ship_img, (self.x, self.y))
@@ -83,8 +77,10 @@ class Ship:
         for laser in self.lasers:
             laser.move(vel)
             if laser.off_screen(HEIGHT):
+                # if laser is offscreen it gets removed
                 self.lasers.remove(laser)
             elif laser.collision(obj):
+                # if there is collision it removes health and removes laser to prevent rebounding
                 obj.health -= 10
                 self.lasers.remove(laser)
 
@@ -92,6 +88,12 @@ class Ship:
         if self.cool_down_counter >= self.COOLDOWN:
             self.cool_down_counter = 0
         elif self.cool_down_counter > 0:
+            self.cool_down_counter += 1
+
+    def shoot(self):
+        if self.cool_down_counter == 0:
+            laser = Laser(self.x, self.y, self.laser_img)
+            self.lasers.append(laser)
             self.cool_down_counter = 1
 
     def get_width(self):
@@ -103,12 +105,32 @@ class Ship:
 
 class Player(Ship):
     def __init__(self, x, y, health=100):
-        super().__init__(x, y, health=health)
+        super().__init__(x, y, health)
         self.ship_img = YELLOW_SPACE_SHIP
         self.laser_img = YELLOW_LASER
         self.mask = pygame.mask.from_surface(
             self.ship_img)  # this is for collision
         self.max_health = health
+
+    def move_lasers(self, vel, objs):
+        self.cooldown()
+        for laser in self.lasers:
+            laser.move(vel)
+            if laser.off_screen(HEIGHT):
+                # if laser is offscreen it gets removed
+                self.lasers.remove(laser)
+            else:
+                for obj in objs:
+                    if laser.collision(obj):
+                        # if there is collision it removes health and removes laser to prevent rebounding
+                        objs.remove(obj)
+                        self.lasers.remove(laser)
+
+    def healthbar(self, window):
+        pygame.draw.rect(window, (255, 0, 0),
+                         (self.x, self.y + self.ship_img.get.height() + 10, self.ship_img.get_width(), 10))
+        pygame.draw.rect(window, (0, 255, 0),
+                         (self.x, self.y + self.ship_img.get.height() + 10, self.ship_img.get_width() * (1 - (self.max_health - self.health)/self.max_health)), 10)
 
 
 class Enemy(Ship):
@@ -125,6 +147,12 @@ class Enemy(Ship):
 
     def move(self, vel):
         self.y += vel
+
+    def shoot(self):
+        if self.cool_down_counter == 0:
+            laser = Laser(self.x-18, self.y, self.laser_img)
+            self.lasers.append(laser)
+            self.cool_down_counter = 1
 
 
 def collide(obj1, obj2):
@@ -147,6 +175,7 @@ def main():
     enemy_vel = 1
 
     player_vel = 5
+    laser_vel = 6
 
     player = Player(300, 650)
 
@@ -216,9 +245,19 @@ def main():
 
         for enemy in enemies[:]:
             enemy.move(enemy_vel)
-            if enemy.y + enemy.get_height() > HEIGHT:
+            enemy.move_lasers(laser_vel, player)
+
+            if random.randrange(0, 2*60) == 1:
+                enemy.shoot()
+
+            if collide(enemy, player):
+                player.health -= 10
+                enemies.remove(enemy)
+            elif enemy.y + enemy.get_height() > HEIGHT:
                 lives -= 1
                 enemies.remove(enemy)
+
+        player.move_lasers(-laser_vel, enemies)
 
 
 main()
